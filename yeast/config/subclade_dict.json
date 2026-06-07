@@ -1,0 +1,27 @@
+{
+  "3.Brazilian_bioethanol_small": [
+    "BVC",
+    "CNQ",
+    "BTT",
+    "APH",
+    "BVA",
+    "CMT",
+    "CNG",
+    "CNK",
+    "CNP",
+    "BVB",
+    "CNH",
+    "CNB",
+    "BVG",
+    "CNE",
+    "BVF",
+    "CNS"
+  ],
+  "3.Brazilian_bioethanol_small_asex": [
+    "CNB",
+    "BVG",
+    "CNE",
+    "BVF",
+    "CNS"
+  ],
+}
