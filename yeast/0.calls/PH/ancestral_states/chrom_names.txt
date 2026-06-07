@@ -1,0 +1,16 @@
+BK006935.2	chromosome1
+BK006936.2	chromosome2
+BK006937.2	chromosome3
+BK006938.2	chromosome4
+BK006939.2	chromosome5
+BK006940.2	chromosome6
+BK006941.2	chromosome7
+BK006934.2	chromosome8
+BK006942.2	chromosome9
+BK006943.2	chromosome10
+BK006944.2	chromosome11
+BK006945.2	chromosome12
+BK006946.2	chromosome13
+BK006947.3	chromosome14
+BK006948.2	chromosome15
+BK006949.2	chromosome16
