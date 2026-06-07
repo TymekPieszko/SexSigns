@@ -1,0 +1,84 @@
+import numpy as np
+from pathlib import Path
+# configfile: "config.yaml"
+
+#############
+### STEPS ###
+#############
+# (1) Rule align_and_extract_vcfs: align haplomes (i.e., haploid genome copies) against the reference with minimap2.
+# (2) Rule XXXXX: 
+# (3)
+
+# chrom_ids = list(range(1,17))
+chrom_ids = [2,3,5,6,8,9,10,11]
+chrom_ids = [13,14,15,16]
+haplotype_dir = Path(f"0.0.data/haplotypes/chrom_4")
+samples = np.unique([file.stem.split(".")[0] for file in haplotype_dir.glob("*.fasta")])
+print(f"There are {len(samples)} input samples!")
+
+align_and_extract_vcfs_targets = expand("0.2.haploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.HP{I}.vcf.gz", SAMPLE=samples, I=[1,2], CHROM_ID=chrom_ids)
+get_diploid_vcfs_targets = expand("0.3.diploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.vcf.gz", SAMPLE=samples, CHROM_ID=chrom_ids)
+merge_all_vcfs_targets = expand("0.4.total_vcfs/chrom_{CHROM_ID}/chrom_{CHROM_ID}.biSNPs.polar.vcf.gz", CHROM_ID=chrom_ids)
+
+rule all:
+    input:
+        align_and_extract_vcfs_targets,
+        get_diploid_vcfs_targets,
+        merge_all_vcfs_targets
+
+rule align_and_extract_vcfs:
+    input:
+        ref="0.0.data/S288C/chrom_{CHROM_ID}.fasta",
+        hap1="0.0.data/haplotypes/chrom_{CHROM_ID}/{SAMPLE}.HP1.fasta",
+        hap2="0.0.data/haplotypes/chrom_{CHROM_ID}/{SAMPLE}.HP2.fasta"
+    output:
+        # Keeping the pafs for now
+        paf1="0.1.alignments/chrom_{CHROM_ID}/{SAMPLE}.HP1.paf", 
+        paf2="0.1.alignments/chrom_{CHROM_ID}/{SAMPLE}.HP2.paf",
+        vcf1="0.2.haploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.HP1.vcf.gz",
+        vcf2="0.2.haploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.HP2.vcf.gz"
+    conda:
+        "envs/minimap2.yaml"
+    threads: 8
+    resources:
+        mem_mb=1000,
+        runtime=10,    
+    script:
+        "scripts/align_and_extract_vcfs.sh"
+
+rule get_diploid_vcfs:
+    input:
+        vcf1="0.2.haploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.HP1.vcf.gz",
+        vcf2="0.2.haploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.HP2.vcf.gz"
+    output:
+        vcf_2haploids=temp("0.3.diploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.TMP.vcf"), # VCF with two haploid samples
+        vcf_diploid="0.3.diploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.vcf.gz", # VCF with a single diploid sample
+        vcf_diploid_csi="0.3.diploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.vcf.gz.csi" # Index file needs to be touched at the end - cannot be older than the vcf
+    conda:
+        "envs/minimap2.yaml"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+    script:
+        "scripts/get_diploid_vcfs.sh"
+
+# print(len([Path(file).stem.split(".")[-0] for file in get_diploid_vcfs_targets]))
+rule merge_all_vcfs:
+    input:
+        vcfs_in=lambda wc: expand(
+            "0.3.diploid_vcfs/chrom_{CHROM_ID}/{SAMPLE}.vcf.gz",
+            CHROM_ID=wc.CHROM_ID,
+            SAMPLE=samples
+        ),
+        vcf_outgroup="ancestral_states/outgroup_vcfs/chrom_{CHROM_ID}.vcf.gz" # VCF used to polarise vcf_out (Sorrry for the confusing out / outgroup!)
+    output:
+        vcf_out="0.4.total_vcfs/chrom_{CHROM_ID}/chrom_{CHROM_ID}.biSNPs.polar.vcf.gz"
+    conda:
+        "envs/minimap2.yaml"
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=10,
+    script:
+        "scripts/merge_all_vcfs.sh"
