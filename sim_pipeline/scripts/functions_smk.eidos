@@ -1,0 +1,218 @@
+function (integer)draw_tracts(float r, integer i_max, integer lambda) {
+    if (r==0.0) {
+        breaks = integer(0);
+        return breaks;
+    }
+    i = 0;
+    breaks = c();
+    while (i < i_max) {
+        D = rgeom(1, r);
+        i_start = i + D;
+        if (i_start > i_max) {
+            break;
+        }
+        Z = rgeom(1, 1/lambda);
+        i_end = i_start + Z;
+        if (i_end > i_max) {
+            break;
+        }
+        i = i_end;
+        breaks = c(breaks, i_start, i_end);
+    }
+    if (isNULL(breaks)) {
+        breaks = integer(0);
+    }
+    
+    return breaks;
+}
+
+function (logical)get_copying_directions(integer tracts) {
+    num_tracts = asInteger(length(tracts) / 2);
+    direction_vector = sample(c(T,F), size=num_tracts, replace=T);
+    direction_vector = repEach(direction_vector, count=2);
+    return direction_vector;
+}
+
+
+function(object<Dictionary>$)draw_crossovers(float r, integer i_max) {
+    if (r==0.0) {
+        breaks = integer(0);
+        break_matrix = c();
+        return Dictionary('breaks', breaks, 'break_matrix', break_matrix);
+    }
+    i = 0;
+    breaks = c();
+    break_configs = matrix(c(F, T, T, F,
+        T, F, F, T,
+        F, T, F, T,
+        T, F, T, F), nrow = 4, byrow = T);
+    break_matrix = c();
+    
+    while (i < i_max) {
+        D = rgeom(1, r);
+        i_co = i + D;
+        if (i_co > i_max) {
+            break;
+        }
+        breaks = c(breaks, i_co);
+        row_index = sample(0:3, 1);
+        break_matrix = rbind(break_matrix, break_configs[row_index,]);
+        i = i_co;
+    }
+    if (isNULL(breaks)) {
+        breaks = integer(0);
+    }
+    return Dictionary('breaks', breaks, 'break_matrix', break_matrix);
+}
+
+// Rotate columns in the break position matrix to resolve crossovers.
+function(logical)resolve_crossovers(* break_matrix) {
+    if (isNULL(break_matrix)) {
+        return(break_matrix);
+    }
+    if (nrow(break_matrix) == 1) {
+        return(break_matrix);
+    } else {
+        for (i in 0:(nrow(break_matrix)-2)) {
+            cols = which(break_matrix[i,] == T);
+            cols_rev = rev(cols);
+            target_rows = (i+1):(nrow(break_matrix)-1);
+            break_matrix[target_rows, cols] = break_matrix[target_rows, cols_rev];
+        }
+        return(break_matrix);
+    }
+}
+
+
+// Rotate columns in the break position matrix to resolve crossovers.
+function(logical)resolve_crossovers(* break_matrix) {
+    if (isNULL(break_matrix)) {
+        return(break_matrix);
+    }
+    if (nrow(break_matrix) == 1) {
+        return(break_matrix);
+    } else {
+        for (i in 0:(nrow(break_matrix)-2)) {
+            cols = which(break_matrix[i,] == T);
+            cols_rev = rev(cols);
+            target_rows = (i+1):(nrow(break_matrix)-1);
+            break_matrix[target_rows, cols] = break_matrix[target_rows, cols_rev];
+        }
+        return(break_matrix);
+    }
+}
+
+// Subset breaks using columns of the resolved break position matrix to obtain the the breaks for each chromatid.
+function(object<Dictionary>$)subset_crossovers(* breaks, * break_matrix) {
+    if (length(breaks)==0) {
+        breaks1 = integer(0);
+        breaks2 = integer(0);
+        breaks3 = integer(0);
+        breaks4 = integer(0);
+        return Dictionary("breaks1", breaks1, "breaks2", breaks2, "breaks3", breaks3, "breaks4", breaks4);
+    } else {
+        breaks1 = breaks[c(break_matrix[,0])];
+        breaks2 = breaks[c(break_matrix[,1])];
+        breaks3 = breaks[c(break_matrix[,2])];
+        breaks4 = breaks[c(break_matrix[,3])];
+        return Dictionary("breaks1", breaks1, "breaks2", breaks2, "breaks3", breaks3, "breaks4", breaks4);
+    }
+}
+
+
+/*
+//  Return break positions drawn using competing exponential distributions and the associated break position matrix with distinct break combos drawn for crossover and conversion events.
+//  Used in cf_cross_conv.slim
+function(object<Dictionary>$)draw_breaks(float r1, float r2, integer i_max, integer l) {
+    i = 0;
+    breaks = c();
+    crossover_configs = matrix(c(F, T, T, F,
+                                  T, F, F, T,
+                                  F, T, F, T,
+                                  T, F, T, F), nrow = 4, byrow = T);
+    conversion_configs = matrix(c(T, F, F, F,
+                                   F, T, F, F,
+                                   F, F, T, F,
+                                   F, F, F, T), nrow = 4, byrow = T);
+    break_matrix = c();
+    
+    while (i < i_max) {
+        if (r1 == 0 & r2 == 0) {
+            break;
+        }
+        if (r1 != 0) {
+            d1 = rexp(1, 1/r1);
+        } else {
+            d1 = INF;
+        }
+        if (r2 != 0) {
+            d2 = rexp(1, 1/r2);
+        } else {
+            d2 = INF;
+        }  
+        d = min(d1,d2);
+
+        if (i + d > i_max) {
+            break;
+        } else if (d == d1) {
+            // First define break position, then add it to breaks
+            i = i + d1;
+            breaks = c(breaks, i);
+            row_index = sample(0:3, 1);
+            break_matrix = rbind(break_matrix, crossover_configs[row_index,]);
+        } else if (d == d2) {
+            i_start = i + d2;
+            l_instance = rgeom(1, 1 / l);
+            i_end = i_start + l_instance;
+            if (i_end > i_max) {
+                break;
+            } else {
+                i = i_end;
+                breaks = c(breaks, i_start, i_end);
+                row_index = sample(0:3, 1);
+                break_matrix = rbind(break_matrix, conversion_configs[row_index,]);
+                break_matrix = rbind(break_matrix, conversion_configs[row_index,]);
+            }
+        }
+    }
+    return Dictionary('breaks', breaks, 'break_matrix', break_matrix);
+}
+
+// Rotate columns in the break position matrix to resolve crossovers.
+function(object<Dictionary>$)resolve_breaks(* break_matrix) {
+    if (isNULL(break_matrix)) {
+        return(Dictionary('break_matrix', break_matrix));
+    }
+    if (nrow(break_matrix) == 1) {
+        return(Dictionary('break_matrix', break_matrix));
+    } else {
+        for (i in 0:(nrow(break_matrix)-2)) {
+            if (sum(break_matrix[i,]) == 2) {
+                columns = which(break_matrix[i,] == T);
+                columns_rev = rev(columns);
+                target_row_indices = (i+1):(nrow(break_matrix)-1);
+                break_matrix[target_row_indices, columns] = break_matrix[target_row_indices, columns_rev];
+            }
+        }
+        return Dictionary('break_matrix', break_matrix);
+    }
+}
+
+// Subset breaks using columns of the resolved break position matrix to obtain the the breaks for each chromatid.
+function(object<Dictionary>$)subset_breaks(* breaks, * break_matrix) {
+    if (isNULL(breaks)) {
+        breaks1 = integer(0);
+        breaks2 = integer(0);
+        breaks3 = integer(0);
+        breaks4 = integer(0);
+        return Dictionary("breaks1", breaks1, "breaks2", breaks2, "breaks3", breaks3, "breaks4", breaks4);
+    } else {
+        breaks = asInteger(round(breaks));
+        breaks1 = breaks[c(break_matrix[,0])];
+        breaks2 = breaks[c(break_matrix[,1])];
+        breaks3 = breaks[c(break_matrix[,2])];
+        breaks4 = breaks[c(break_matrix[,3])];
+        return Dictionary("breaks1", breaks1, "breaks2", breaks2, "breaks3", breaks3, "breaks4", breaks4);
+    }
+}
+*/

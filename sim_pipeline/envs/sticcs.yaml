@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - tskit
+  - pip
+  - pip:
+      - -e /data/biol-bdelloids/scro4331/software/sticcs

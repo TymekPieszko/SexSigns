@@ -1,0 +1,17 @@
+# Ignore these anywhere
+**/.snakemake/
+**/__pycache__/
+**/sim_output/
+**/out/
+**/*.ign*
+
+# Ignore
+# sim_pipeline/
+# stats/
+# plots/
+# validation/
+# abc/
+yeast/
+
+/plots/*/
+/stats/*/

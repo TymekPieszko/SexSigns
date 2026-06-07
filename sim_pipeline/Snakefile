@@ -1,0 +1,127 @@
+import numpy as np
+configfile: "config.yaml"
+
+### To put in README.md:
+# inds.txt - ind pairs to sample per sim.
+# Not having inds_100 makes not not fully reproducible - ignore.
+
+### The pipeline consists of the following steps:
+# Run simulations (rule simulate).
+# Subsample the simulated genealogies to 2 target individuals (+ output other files for downstream processing); use pyslim for recapitation and msprime to overlay mutations (rule subsample).
+# Reconstruct ARGs for the target 2 individuals with singer (rule singer). 
+# Reconstruct genome-wide trees for the target 2 individuals with IQ-TREE (rules IQ_TREE + root_prune). 
+
+# Choose a model to run
+model = "CO" # GC or CO
+# Parameters from config
+L = config["L"]
+N = config["N"]
+tract = config["tract"]
+rec_lst = config["rec_lst"][model]
+sex_lst = config["sex_lst"]
+# bias_lst = config["bias_lst"]
+gens = config["gens"]
+rep = config["rep"] # one value
+rep_lst = list(range(int(rep)))
+# rep_lst = list(range(5))
+mut_lst = config["mut_lst"]
+
+###################
+simulate_targets = expand("sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, rep=rep_lst)
+###################
+subsample_targets = expand("sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+###################
+singer_targets = expand("sim_output/{model}/2.1.singer/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+###################
+sticcs_targets = expand("sim_output/{model}/2.0.sticcs/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+
+rule all:
+    input:
+        simulate_targets,
+        subsample_targets,
+        # singer_targets,
+        # sticcs_targets,
+
+rule simulate:
+    output:
+        "sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees"
+    conda:
+        "envs/slim.yaml"
+    params:
+        model = model,
+        L = L,
+        N = N,
+        tract = tract, ###### Modify script accordingly!!! ######
+        gens = gens
+    threads: 1
+    resources:
+        mem_mb=10000,
+        runtime=10
+    shell:
+        "slim "
+        "-d L={params.L} "
+        "-d N={params.N} "
+        "-d TRACT={params.tract} "
+        "-d GENS={params.gens} "
+        "-d SEX={wildcards.sex} "
+        "-d REC={wildcards.rec} "
+        "-d 'output=\"{output}\"' scripts/model_{params.model}.slim"
+
+rule subsample:
+    input:
+        "sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees"
+    output:
+        # vcf and fasta_dir can be marked as temp
+        # No need for the MUT dir in sub_ts path
+        sub_ts = "sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", # 2 target inds
+        vcf = "sim_output/{model}/1.1.vcf/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf", # 2 target inds
+        fasta_dir = directory("sim_output/{model}/1.2.fasta/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/"), # Directory to store fasta files; 100 inds each (including 2 target inds)
+        # intervals = "sim_output/{model}/1.1.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees" # ADD DESCRIPTION - interavals in order of bias
+    conda:
+        "envs/tskit.yaml"
+    params:
+        inds_file = "sim_output/inds_pipeline.txt",
+        L = L,
+        N_recap = N, # For recapitation
+        rec_recap = 1e-6, # For recapitation
+        interval_len = 5000
+    threads: 1
+    resources:
+        mem_mb=5000,
+        runtime=5,
+    script:
+        "scripts/subsample_ts.py"
+
+# singer_runtimes = {}
+
+rule singer:
+    input:
+        vcf = "sim_output/{model}/1.1.vcf/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf",
+    output:
+        ts_dir = directory("sim_output/{model}/2.1.singer/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/") # Non-ts output is deleted
+    conda:
+        "envs/tskit.yaml"
+    threads: 1
+    params:
+        L = L, # Singer needs the end position
+    resources:
+        mem_mb=10000, 
+        runtime=20
+    script:
+        "scripts/run_singer.py"
+
+rule sticcs:
+    input:
+        "sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees"
+    output:
+        "sim_output/{model}/2.0.sticcs/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees"
+    conda:
+        "envs/sticcs.yaml"
+    threads: 1
+    params:
+        force_ploidy = 1, # Diploid but haplotype-resolved (phased)
+    resources:
+        mem_mb=10000, 
+        runtime=10
+    script:
+        "scripts/run_sticcs.py"

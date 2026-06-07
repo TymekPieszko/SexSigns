@@ -1,0 +1,14 @@
+name: slim
+channels:
+  - bioconda
+  - defaults
+  - conda-forge
+dependencies:
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=2_kmp_llvm
+  - libgcc-ng=13.2.0=hc881cc4_6
+  - libstdcxx-ng=13.2.0=h95c4c6d_6
+  - llvm-openmp=14.0.6=h9e868ea_0
+  - slim=4.2.1=h59595ed_0
+  - zlib=1.2.13=h5eee18b_0
+prefix: /home/scro4331/.conda/envs/slim

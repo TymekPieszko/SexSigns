@@ -1,0 +1,71 @@
+initialize()
+{
+	initializeSLiMModelType("nonWF");
+	initializeTreeSeq();
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L - 1);
+	initializeMutationRate(0);
+	initializeRecombinationRate(1 / L);
+	source("./scripts/functions_val.eidos");
+}
+
+// Individuals produce offspring according to fitness
+reproduction()
+{
+	K = sim.getValue("N");
+	fitness = p1.cachedFitness(NULL);
+	parents1 = sample(p1.individuals, N, replace=T, weights=fitness);
+	parents2 = sample(p1.individuals, N, replace=T, weights=fitness);
+	for (i in seqLen(K))
+	{
+		mode = sample(c('ASEX', 'SEX'), 1, weights=c(1 - SEX, SEX)); // Draw the reproductive mode to produce an offspring according to the frequencies of asexuality and sex
+		if (mode == 'ASEX')
+		{
+			parent = parents1[i];
+			gen1 = parent.genome1;
+			gen2 = parent.genome2;
+			breaks = draw_tracts(r=REC, i_max=L - 1, lambda=TRACT);
+			
+			// Randomise the copying directions of GC tracts
+			direction_vector = get_copying_directions(breaks);
+			breaks1 = breaks[direction_vector];
+			breaks2 = breaks[!direction_vector];
+			
+			// Shuffle SLiM genomes between the locations; you want trees with different allele groupings to coexist in an asexual population
+			config = sample(c(1, 2), size=1, replace=T);
+			if (config == 1)
+			{
+				subpop.addRecombinant(gen1, gen2, breaks1, gen2, gen1, breaks2);
+			}
+			else if (config == 2)
+			{
+				subpop.addRecombinant(gen2, gen1, breaks2, gen1, gen2, breaks1);
+			}
+		}
+		else if (mode == 'SEX')
+		{
+			parent1 = parents1[i];
+			parent2 = parents2[i];
+			subpop.addCrossed(parent1, parent2);
+		}
+	}
+	self.active = 0;
+}
+
+1 early()
+{
+	sim.setValue("N", N);
+	sim.addSubpop("p1", 1);
+}
+
+survival()
+{
+	// Survival is independent of fitness; parents die, offspring live
+	return (individual.age == 0);
+}
+
+GENS late()
+{
+	sim.treeSeqOutput(output);
+}
