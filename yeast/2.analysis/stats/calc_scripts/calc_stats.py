@@ -9,10 +9,6 @@ from sexsigns_utils.yeast import read_vcf, get_targets, get_features, get_callab
 warnings.simplefilter("ignore")
 
 ##############
-### To do:
-# Take a look at paths
-
-##############
 ### Run as:
 # python calc_stats.py 12.West_African_cocoa
 # python calc_stats.py '1.Wine_European_(subclade_3)'
@@ -22,8 +18,7 @@ warnings.simplefilter("ignore")
 ##############
 # Command line
 clade = sys.argv[1]
-root_dir = Path("/data/biol-bdelloids/scro4331/SexSigns/yeast/")
-clade_dict = root_dir / "config/clade_dict.json"
+clade_dict = "../../../config/clade_dict.json"
 # Get target samples
 targets = get_targets(clade_dict, clade)
 ##############
@@ -76,7 +71,7 @@ CL_spans = []
 with open(total_file, "w") as f:
     for chrom_id in tqdm(chrom_ids):
         # Read in data from VCF
-        vcf = root_dir / f"0.calls/PH/0.4.total_vcfs/chrom_{chrom_id}/chrom_{chrom_id}.biSNPs.polar.vcf.gz"
+        vcf = f"../../../0.calls/PH/0.4.total_vcfs/chrom_{chrom_id}/chrom_{chrom_id}.biSNPs.polar.vcf.gz"
 
         #######################
         ### Read in data
@@ -104,7 +99,7 @@ with open(total_file, "w") as f:
         fis = calc_fis(genos_target)
         # print(hi, fis)
 
-        ts_dir = root_dir / f"1.args/sticcs/ploidy~1_strategy~pair_sc~True/chrom_{chrom_id}/{clade}"
+        ts_dir = f"../../../1.args/sticcs/ploidy~1_strategy~pair_sc~True/chrom_{chrom_id}/{clade}"
 
         delta_df = pd.DataFrame(index=ordered_targets, columns=ordered_targets, dtype=float)
         sgl_df = pd.DataFrame(index=ordered_targets, columns=ordered_targets, dtype=float)

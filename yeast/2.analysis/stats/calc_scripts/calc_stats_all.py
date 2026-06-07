@@ -15,8 +15,6 @@ def run_clade(clade):
 
 def main():
 
-    clades_file = Path("./delta_clades.txt")
-
     with open("../../../config/clade_dict.json") as f:
         clade_dict = json.load(f)
         clades = list(clade_dict.keys())
