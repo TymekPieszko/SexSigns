@@ -1,6 +1,6 @@
 # Detecting and quantifying rare sex in natural populations (Pieszko et al., 2026)
 
-Repository accompanying the manuscript (currently on bioRxiv: DOI). The directories contain:
+Repository accompanying the manuscript (currently on bioRxiv: [DOI](https://doi.org/10.1101/2025.06.03.657731)). The directories contain:
 
 - `sim_pipeline/`
   - Snakemake pipeline used to run simulations under models of asexuality (`scripts/model_GC.slim` and `scripts/model_CO.slim`).
