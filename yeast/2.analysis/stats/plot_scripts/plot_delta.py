@@ -21,7 +21,6 @@ color_dict = {
 
 plot_dir.mkdir(parents=True, exist_ok=True)
 
-# your target individuals
 targets = {
     "ANN", "CQM", "CQE", "CQK", "CQF", "CQN",  # West African Cocoa
     "CNB", "BVG", "CNE", "BVF", "CNS", "BVH"   # Brazilian Bioethanol
@@ -42,10 +41,7 @@ for file in data_dir.glob("*pair*"):
     if len(df) == 0:
         continue
 
-    # ------------------------------------------------------------
-    # Bin definitions
-    # Wider left tail only for Sake
-    # ------------------------------------------------------------
+
     if "Sake" in file.stem:
         bins = np.linspace(-0.75, 1.5, 24)
     else:
@@ -53,12 +49,6 @@ for file in data_dir.glob("*pair*"):
 
     bin_width = bins[1] - bins[0]
 
-    # ------------------------------------------------------------
-    # Stacking priority:
-    # 1. yellow contour pairs first
-    # 2. within contour/non-contour groups,
-    #    rarer lifecycle colors stack lower
-    # ------------------------------------------------------------
     all_inds = pd.unique(df[["ind_A", "ind_B"]].values.ravel())
 
     lc_counts = pd.Series(
@@ -116,7 +106,6 @@ for file in data_dir.glob("*pair*"):
 
         special = (s1 in targets) and (s2 in targets)
 
-        # determine histogram bin
         bin_idx = np.digitize(delta, bins) - 1
 
         if bin_idx < 0 or bin_idx >= len(heights):
