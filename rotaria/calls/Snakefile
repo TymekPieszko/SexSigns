@@ -1,0 +1,308 @@
+##################
+### Parameters ###
+##################
+
+sp = "Rsoc" # Rmag or Rsoc
+
+# Get samples from a file
+SAMPLES = [l.strip() for l in open(f"{sp}_samples.txt") if l.strip()]
+
+# Choose the reference assembly
+if sp == "Rmag":
+    REF = f"ref/R_magnacalcarata_RM9.fa"
+elif sp == "Rsoc":
+    REF = f"ref/R_socialis_RS1.fa"
+
+# Depth ceilings are the 95th percentiles of INFO/DP and of each sample's
+# FORMAT/DP; plot_pre_filter computes them and writes {sp}_thresholds.txt.
+
+# Read the chunks for parallel calling / phasing
+CHUNKS = [l.strip() for l in open(f"{sp}_chunks.txt") if l.strip()]
+CHUNK_IDS = [f"{i:03d}" for i in range(len(CHUNKS))] # 0-padding needed for concatenation
+
+# Some samples were sequenced across multiple libraries.
+# The function extracts sample name from library name;
+# library names are identified by trailing _1 or _2.
+def sample_of(library):
+    return library[:-2] if library[-2:] in ("_1", "_2") else library
+
+################
+### Pipeline ###
+################
+
+rule all:
+    input:
+        expand("1.merged/{sp}/qc/{sample}_R{r}_fastqc.html", sp=sp, sample=SAMPLES, r=[1, 2]),
+        expand("2.trimmed/{sp}/{sample}_R{r}.fastq.gz", sp=sp, sample=SAMPLES, r=[1, 2]),
+        f"multiqc/{sp}_multiqc.html",
+        expand("4.markdup/{sp}/{sample}.bam", sp=sp, sample=SAMPLES),
+        expand("4.markdup/{sp}/qc/{sample}.stats", sp=sp, sample=SAMPLES),
+        f"5.calls/{sp}/{sp}_raw.vcf.gz",
+        f"5.calls/{sp}/scores/{sp}_pre.png",
+        f"5.calls/{sp}/scores/{sp}_post.png",
+        f"5.calls/{sp}/{sp}_filtered.vcf.gz",
+        f"5.calls/{sp}/{sp}_phased.vcf.gz",
+
+localrules: multiqc
+
+rule fastqc:
+    input:
+        fq1="1.merged/{sp}/{sample}_R1.fastq.gz",
+        fq2="1.merged/{sp}/{sample}_R2.fastq.gz",
+    output:
+        "1.merged/{sp}/qc/{sample}_R1_fastqc.html",
+        "1.merged/{sp}/qc/{sample}_R2_fastqc.html",
+        "1.merged/{sp}/qc/{sample}_R1_fastqc.zip",
+        "1.merged/{sp}/qc/{sample}_R2_fastqc.zip",
+    threads: 2
+    resources:
+        mem_mb=4000,
+        runtime=120,
+    shell:
+        "fastqc -t {threads} --outdir 1.merged/{wildcards.sp}/qc {input.fq1} {input.fq2}"
+
+rule fastp:
+    input:
+        fq1="1.merged/{sp}/{sample}_R1.fastq.gz",
+        fq2="1.merged/{sp}/{sample}_R2.fastq.gz",
+    output:
+        fq1="2.trimmed/{sp}/{sample}_R1.fastq.gz",
+        fq2="2.trimmed/{sp}/{sample}_R2.fastq.gz",
+        html="2.trimmed/{sp}/qc/{sample}_fastp.html",
+        json="2.trimmed/{sp}/qc/{sample}_fastp.json",
+    threads: 4
+    resources:
+        mem_mb=20000,
+        runtime=240,
+    shell:
+        "fastp -i {input.fq1} -I {input.fq2} "
+        "-o {output.fq1} -O {output.fq2} "
+        "--thread {threads} "
+        "-u 40 -q 15 "
+        "-g -c -y -Y 30 "
+        "--html {output.html} --json {output.json} "
+        "--report_title {wildcards.sample}"
+
+rule bwa_mem2:
+    input:
+        ref=REF,
+        idx=multiext(REF, ".amb", ".ann", ".pac", ".0123", ".bwt.2bit.64"),
+        fq1="2.trimmed/{sp}/{sample}_R1.fastq.gz",
+        fq2="2.trimmed/{sp}/{sample}_R2.fastq.gz",
+    output:
+        bam=temp("3.mapped/{sp}/{sample}.bam"),
+    params:
+        # ID/LB = library, SM = sample.
+        rg=lambda w: r"@RG\tID:%s\tSM:%s\tPL:ILLUMINA\tLB:%s\tPU:%s"
+                     % (w.sample, sample_of(w.sample), w.sample, w.sample),
+    threads: 8
+    resources:
+        mem_mb=24000,
+        runtime=480,
+    shell:
+        "bwa-mem2 mem -t {threads} -R '{params.rg}' "
+        "{input.ref} {input.fq1} {input.fq2} "
+        "| samtools view -b -o {output.bam} -"
+
+rule markdup:
+    # No -d: ENA rewrote the read names, so optical duplicates cannot be told
+    # apart from PCR ones (all are marked either way).
+    input:
+        bam="3.mapped/{sp}/{sample}.bam",
+    output:
+        bam="4.markdup/{sp}/{sample}.bam",
+        bai="4.markdup/{sp}/{sample}.bam.bai",
+        stats="4.markdup/{sp}/qc/{sample}_markdup.txt",
+    threads: 4
+    resources:
+        mem_mb=24000,
+        runtime=480,
+    shell:
+        "samtools collate -@ {threads} -O {input.bam} "
+        "| samtools fixmate -@ {threads} -m - - "
+        "| samtools sort -@ {threads} -o {output.bam}.tmp.bam - && "
+        "samtools markdup -@ {threads} -s -f {output.stats} "
+        "{output.bam}.tmp.bam {output.bam} && "
+        "rm {output.bam}.tmp.bam && "
+        "samtools index -@ {threads} {output.bam}"
+
+rule bam_stats:
+    input:
+        bam="4.markdup/{sp}/{sample}.bam",
+        bai="4.markdup/{sp}/{sample}.bam.bai",
+        ref=REF,
+    output:
+        stats="4.markdup/{sp}/qc/{sample}.stats",
+        idxstats="4.markdup/{sp}/qc/{sample}.idxstats",
+        mosdepth="4.markdup/{sp}/qc/{sample}.mosdepth.summary.txt",
+    params:
+        prefix=lambda w, output: output.stats[:-6],
+    threads: 4
+    resources:
+        mem_mb=8000,
+        runtime=240,
+    shell:
+        "samtools stats -@ {threads} --reference {input.ref} {input.bam} > {output.stats} && "
+        "samtools idxstats {input.bam} > {output.idxstats} && "
+        "mosdepth -t {threads} -n -x {params.prefix} {input.bam}"
+
+rule multiqc:
+    input:
+        expand("1.merged/{sp}/qc/{sample}_R{r}_fastqc.zip", sp=sp, sample=SAMPLES, r=[1, 2]),
+        expand("2.trimmed/{sp}/qc/{sample}_fastp.json", sp=sp, sample=SAMPLES),
+        expand("4.markdup/{sp}/qc/{sample}.stats", sp=sp, sample=SAMPLES),
+        expand("4.markdup/{sp}/qc/{sample}.idxstats", sp=sp, sample=SAMPLES),
+        expand("4.markdup/{sp}/qc/{sample}_markdup.txt", sp=sp, sample=SAMPLES),
+        expand("4.markdup/{sp}/qc/{sample}.mosdepth.summary.txt", sp=sp, sample=SAMPLES),
+    output:
+        f"multiqc/{sp}_multiqc.html",
+    shell:
+        f"multiqc 1.merged/{sp}/qc 2.trimmed/{sp}/qc 4.markdup/{sp}/qc -o multiqc -n {sp}_multiqc.html -f"
+
+rule bcftools_call:
+    # -G - disables the HWE prior;
+    # FORMAT/AD is required by -G.
+    input:
+        ref=REF,
+        fai=REF + ".fai",
+        bams=expand("4.markdup/{{sp}}/{sample}.bam", sample=SAMPLES),
+        bais=expand("4.markdup/{{sp}}/{sample}.bam.bai", sample=SAMPLES),
+    params:
+        regions=lambda w: CHUNKS[int(w.chunk)]
+    output:
+        vcf="5.calls/{sp}/chunks_1/{chunk}.vcf.gz",
+    threads: 2
+    resources:
+        mem_mb=4000,
+        runtime=120,
+    shell:
+        "bcftools mpileup -a FORMAT/SP,FORMAT/DP,FORMAT/AD "
+        "-f {input.ref} -r {params.regions} {input.bams} -Ou "
+        "| bcftools call -m -G - -a FORMAT/GQ --threads {threads} "
+        "-Oz -o {output.vcf}"
+
+rule concat_1:
+    input:
+        vcfs=expand("5.calls/{{sp}}/chunks_1/{chunk}.vcf.gz", chunk=CHUNK_IDS),
+    output:
+        vcf="5.calls/{sp}/{sp}_raw.vcf.gz",
+        csi="5.calls/{sp}/{sp}_raw.vcf.gz.csi",
+    threads: 4
+    resources:
+        mem_mb=8000,
+        runtime=240,
+    shell:
+        "bcftools concat --naive --threads {threads} -Oz -o {output.vcf} {input.vcfs} && "
+        "bcftools index --threads {threads} {output.vcf}"
+
+rule plot_pre_filter:
+    input:
+        vcf="5.calls/{sp}/{sp}_raw.vcf.gz",
+        csi="5.calls/{sp}/{sp}_raw.vcf.gz.csi",
+    output:
+        table="5.calls/{sp}/scores/{sp}_pre.tsv",
+        plot="5.calls/{sp}/scores/{sp}_pre.png",
+        thresholds="5.calls/{sp}/scores/{sp}_thresholds.txt",
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=360,
+    shell:
+        "bcftools query -f '%TYPE\\t%DP\\t%MQ\\t%QUAL[\\t%GT,%DP,%GQ,%SP]\\n' {input.vcf} "
+        "| awk 'NR % 10 == 0' > {output.table} && "
+        "python3 scripts/plot_scores.py {output.table} {output.plot} "
+        "--calc_thresholds {output.thresholds}"
+
+rule filter:
+    input:
+        vcf="5.calls/{sp}/{sp}_raw.vcf.gz",
+        csi="5.calls/{sp}/{sp}_raw.vcf.gz.csi",
+        thresholds="5.calls/{sp}/scores/{sp}_thresholds.txt",
+    output:
+        vcf="5.calls/{sp}/{sp}_filtered.vcf.gz",
+        csi="5.calls/{sp}/{sp}_filtered.vcf.gz.csi",
+        log="5.calls/{sp}/{sp}_filter_log.txt",
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=720,
+    shell:
+        """
+        DP_MAX=$(cat {input.thresholds})
+        bcftools filter -Ou -g 5:indel,other {input.vcf} \
+            | bcftools view -Ou -M 2 -V indels,other,mnps \
+            | bcftools filter -Ou -e "INFO/DP>$DP_MAX || MQ<40 || (TYPE!=\\"ref\\" && QUAL<30)" \
+            | bcftools filter -Oz -S . -e "FORMAT/GQ<40 | FORMAT/DP<8 | FORMAT/SP>20" \
+            -o {output.vcf}
+        bcftools index {output.vcf}
+        echo "DP_MAX $DP_MAX" > {output.log}
+        echo "input $(bcftools index -n {input.vcf})" >> {output.log}
+        echo "filtered $(bcftools index -n {output.vcf})" >> {output.log}
+        """
+
+rule plot_post_filter:
+    input:
+        vcf="5.calls/{sp}/{sp}_filtered.vcf.gz",
+        csi="5.calls/{sp}/{sp}_filtered.vcf.gz.csi",
+    output:
+        table="5.calls/{sp}/scores/{sp}_post.tsv",
+        plot="5.calls/{sp}/scores/{sp}_post.png",
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=360,
+    shell:
+        "bcftools query -f '%TYPE\\t%DP\\t%MQ\\t%QUAL[\\t%GT,%DP,%GQ,%SP]\\n' {input.vcf} "
+        "| awk 'NR % 5 == 0' > {output.table} && "
+        "python3 scripts/plot_scores.py {output.table} {output.plot}"
+
+rule whatshap:
+    input:
+        vcf="5.calls/{sp}/{sp}_filtered.vcf.gz",
+        csi="5.calls/{sp}/{sp}_filtered.vcf.gz.csi",
+        ref=REF,
+        fai=REF + ".fai",
+        bams=expand("4.markdup/{{sp}}/{sample}.bam", sample=SAMPLES),
+        bais=expand("4.markdup/{{sp}}/{sample}.bam.bai", sample=SAMPLES),
+    output:
+        vcf=temp("5.calls/{sp}/chunks_2/{chunk}.vcf.gz"),
+        tab=temp("5.calls/{sp}/chunks_2/{chunk}.tab"),
+    params:
+        regions=lambda w: CHUNKS[int(w.chunk)]
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=180,
+    shell:
+        """
+        T={output.vcf}.in.vcf.gz
+        bcftools view -Oz -r {params.regions} {input.vcf} -o $T
+        bcftools index $T
+        whatshap phase -o {output.vcf} --reference {input.ref} \
+            --output-read-list {output.tab} --distrust-genotypes \
+            $T {input.bams}
+        rm $T $T.csi
+        """
+
+rule concat_2:
+    input:
+        vcfs=expand("5.calls/{{sp}}/chunks_2/{chunk}.vcf.gz", chunk=CHUNK_IDS),
+        tabs=expand("5.calls/{{sp}}/chunks_2/{chunk}.tab", chunk=CHUNK_IDS),
+    output:
+        vcf="5.calls/{sp}/{sp}_phased.vcf.gz",
+        csi="5.calls/{sp}/{sp}_phased.vcf.gz.csi",
+        tab="5.calls/{sp}/{sp}_phased.tab",
+    threads: 4
+    resources:
+        mem_mb=8000,
+        runtime=240,
+    shell:
+        """
+        bcftools concat --naive --threads {threads} -Oz -o {output.vcf} {input.vcfs}
+        bcftools index --threads {threads} {output.vcf}
+        awk 'FNR > 1 || NR == 1' {input.tabs} > {output.tab}
+        """
+
+
+
+

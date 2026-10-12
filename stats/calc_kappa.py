@@ -20,7 +20,7 @@ warnings.simplefilter('ignore')
 sim_model = sys.argv[1]
 n_workers = int(sys.argv[2])
 inds_file = "./inds_60.tsv"
-target = Path(f"../sim_pipeline_2/sim_output/{sim_model}/0.ts/")
+target = Path(f"../sim_pipeline/sim_output/{sim_model}/0.ts/")
 
 ###################
 ### Output:

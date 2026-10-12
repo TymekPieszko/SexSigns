@@ -341,8 +341,8 @@ def calc_delta(genos, pos, interval_dict):
 
             # To avoid a bias towards near-0 values:
             counts = np.array([c_0, c_1, c_2, c_3])
-            # if np.count_nonzero(counts) < 2:
-            #     continue 
+            if np.count_nonzero(counts) < 2:
+                continue
             
             tree = int(tree)
             if tree == 1:
@@ -370,6 +370,13 @@ def calc_delta(genos, pos, interval_dict):
         return delta, total_span
     else:
         return np.nan, 0.0
+
+def filter_by_dbl(CL_intervals, genos, pos, min_dbl):
+    # Takes tskit-style genotypes; keeps intervals with >= min_dbl doubletons.
+    is_dbl = genos.sum(axis=1) == 2
+    pos = pos[is_dbl]
+    return {tree: [(s, e) for s, e in ivs if np.sum((pos >= s) & (pos < e)) >= min_dbl]
+            for tree, ivs in CL_intervals.items()}
 
 def count_sgl(genos, pos, interval_dict):
     # Mirroring the processing inside calc_delta()

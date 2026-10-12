@@ -1,5 +1,8 @@
-import tskit
+import tskit, itertools
+import numpy as np
+from pathlib import Path
 from sticcs import sticcs
+from multiprocessing import Pool
 
 def run_sticcs(G, positions, seq_len, forced_ploidy, second_chances, silent):
     # (TP) From https://github.com/simonhmartin/testing-sticcs-twisst2/blob/main/sim/sim_sticcs.py#L107
@@ -47,11 +50,11 @@ def run_sticcs(G, positions, seq_len, forced_ploidy, second_chances, silent):
     return ts_sticcs #.simplify(reduce_to_site_topology=True)
 
 ts_in = snakemake.input[0]
-ts_out = snakemake.output[0]
+out_dir = Path(snakemake.output[0])
 forced_ploidy = int(snakemake.params.forced_ploidy)
+n_inds = int(snakemake.wildcards.inds)
 
 def get_sticcs_inputs(ts):
-    ts = tskit.load(ts)
     G = ts.genotype_matrix()
     pos = ts.sites_position
     if pos[0] == 0.0:
@@ -63,7 +66,20 @@ def get_sticcs_inputs(ts):
     G, pos = G[is_bi_01], pos[is_bi_01]
     return G, pos, seq_len
 
-G, pos, seq_len = get_sticcs_inputs(ts_in)
-# Run sticcs
-ts = run_sticcs(G, pos, seq_len, forced_ploidy=forced_ploidy, second_chances=True, silent=False)
-ts.dump(ts_out)
+def sticcs_pair(pair):
+    i, j = pair
+    nodes = list(ts.individual(i).nodes) + list(ts.individual(j).nodes)
+    G, pos, seq_len = get_sticcs_inputs(ts.simplify(nodes))
+    ts_ij = run_sticcs(G, pos, seq_len, forced_ploidy=forced_ploidy, second_chances=True, silent=True)
+    ts_ij.dump(out_dir / f"{i}~{j}.trees")
+
+ts = tskit.load(ts_in)
+assert ts.num_individuals >= n_inds
+out_dir.mkdir(parents=True, exist_ok=True)
+# for i, j in itertools.combinations(range(n_inds), 2):
+#     nodes = list(ts.individual(i).nodes) + list(ts.individual(j).nodes)
+#     G, pos, seq_len = get_sticcs_inputs(ts.simplify(nodes))
+#     ts_ij = run_sticcs(G, pos, seq_len, forced_ploidy=forced_ploidy, second_chances=True, silent=False)
+#     ts_ij.dump(out_dir / f"{i}~{j}.trees")
+with Pool(processes=snakemake.threads) as pool:
+    pool.map(sticcs_pair, itertools.combinations(range(n_inds), 2))

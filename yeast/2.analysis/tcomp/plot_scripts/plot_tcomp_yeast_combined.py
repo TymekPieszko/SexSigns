@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import json, sys, tqdm
 from collections import Counter
 from sexsigns_utils.calc import codes, calc_category_props
-from sexsigns_utils.yeast import plot_grid, plot_category_props
+from sexsigns_utils.yeast import plot_grid
 
 ##############
 ### About:
@@ -40,28 +40,39 @@ clades = list(clade_dict.keys())
 
 ###############
 ### Plot 1
+cats = ["CL", "AR", "SX"]
+colors = ["#377eb8", "#4daf4a", "#ff7f00"]
 for clade in tqdm.tqdm(clades):
-    total = {code: 0.0 for code in codes}
+    with open(data_dir / f"chrom_1/{clade}.json") as f:
+        pairs = list(json.load(f).keys())
+    total = {pair: {code: 0.0 for code in codes} for pair in pairs}
     for tcomp_per_pair in data_dir.rglob(f"*/{clade}.json"):
-        # print(tcomp_per_pair)
         with open(tcomp_per_pair, 'r') as f:
             tcomp_per_pair = json.load(f)
-        for tcomp in tcomp_per_pair.values():
-            for code, value in tcomp.items():
-                total[code] += value
-    total_sum = sum(total.values())
-    if total_sum > 0:
-        total = {k: v / total_sum for k, v in total.items()}
-    fig, ax = plt.subplots(figsize=(9,10))
-    plot_category_props(ax, total, "sample1", "sample2", font_size=42)
-    plt.xticks(range(3), ["CL", "AR", "SX"], fontsize=56)
-    ax.tick_params(axis='x', pad=15)
-    plt.yticks(fontsize=40)
-    # plt.title(clade, fontsize=32)
-    plot_file = plot_dir / f"{clade}.total.png" 
-    plt.savefig(plot_file)
+        for pair, tcomp in tcomp_per_pair.items():
+            for code, span in tcomp.items():
+                total[pair][code] += span
+    props_arr = np.array([[calc_category_props(t)[c] for c in cats] for t in total.values()], dtype=float)
+    mins, maxs = props_arr.min(axis=0), props_arr.max(axis=0)
+    pooled = {code: sum(t[code] for t in total.values()) for code in codes}
+    pooled_props = np.array([calc_category_props(pooled)[c] for c in cats])
+    fig = plt.figure(figsize=(6.4, 6.9))
+    ax = fig.add_axes([1.5 / 6.4, 0.4 / 6.9, 4.5 / 6.4, 6 / 6.9])
+    for i in range(len(cats)):
+        x = [i, i + 1]
+        ax.fill_between(x=x, y1=mins[i], y2=maxs[i], color=colors[i], alpha=0.2, linewidth=0)
+        ax.plot(x, [mins[i], mins[i]], color=colors[i], linewidth=6)
+        ax.plot(x, [maxs[i], maxs[i]], color=colors[i], linewidth=6)
+        ax.plot(x, [pooled_props[i], pooled_props[i]], color=colors[i], linestyle=(0, (1, 0.5)), linewidth=14)
+    ax.set_xticks(np.arange(len(cats)) + 0.5)
+    ax.tick_params(axis="x", labelbottom=False, length=18, width=3)
+    ax.tick_params(axis="y", labelsize=38)
+    ax.set_xlim(0, len(cats))
+    ax.set_ylim(0, 1)
+    ax.set_yticks(np.arange(0, 1.01, 0.2))
+    plot_file = plot_dir / f"{clade}.total.png"
+    fig.savefig(plot_file, dpi=150)
     plt.close()
-
 ###############
 ### Plot 2
 # Get pairs

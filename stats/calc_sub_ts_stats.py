@@ -20,7 +20,7 @@ out_dir.mkdir(exist_ok=True)
 total_blocks = defaultdict(dict)
 total_SNVs = defaultdict(dict)
 
-for dir in Path(f"../sim_pipeline_2/sim_output/{model}/1.0.sub_ts").glob(
+for dir in Path(f"../sim_pipeline/sim_output/{model}/1.0.sub_ts/INDS~2").glob(
     "SEX~*/REC~*/MUT~*/"
 ):
 

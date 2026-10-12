@@ -13,8 +13,10 @@
 ### Real run
 snakemake \
 --executor slurm \
--j 50 \
+-j 75 \
+--resources mem_mb=24000 \
 --default-resources slurm_account=biol-bdelloids slurm_partition=devel \
+--group-components subsample_for_abc=40 \
 --use-conda --conda-frontend mamba \
 --rerun-triggers mtime \
 --rerun-incomplete \

@@ -141,7 +141,9 @@ with open(total_file, "w") as f:
                 CL_chrom += span
 
             # Calc kappa
-            genos_ij_tskit = to_tskit(genos_ij)
+            # Restrict to sites callable in BOTH isolates of the pair
+            callable_mask_ij = get_callable_mask([callable_regions_per_sample[i], callable_regions_per_sample[j]], pos_ij)
+            genos_ij_tskit = to_tskit(genos_ij)[~callable_mask_ij.any(axis=1)]
             genos_ij_tskit = genos_ij_tskit[np.all(genos_ij_tskit != -1, axis=1)] # Exclude sites with missingness
             kappa = calc_kappa(genos_ij_tskit)
             # Below is repeated from calc_kappa():

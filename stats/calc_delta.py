@@ -26,7 +26,7 @@ interval_type = sys.argv[2]
 bias = float(sys.argv[3])
 n_workers = int(sys.argv[4])
 inds_file = "./inds_60.tsv"
-target = Path(f"../sim_pipeline_2/sim_output/{sim_model}/0.ts/")
+target = Path(f"../sim_pipeline/sim_output/{sim_model}/0.ts/")
 ordered_window_dict = f"./ordered_windows/ordered_windows_{sim_model}.ts.json"
 with open(ordered_window_dict, "r") as f:
     ordered_window_dict = json.load(f)

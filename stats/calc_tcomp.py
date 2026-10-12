@@ -19,11 +19,11 @@ from sexsigns_utils.calc import codes, calc_tcomp_vTracked
 sim_model = sys.argv[1]
 inf_method = sys.argv[2]
 if inf_method == "sim":
-    target_dir = "1.0.sub_ts"
+    target_dir = "1.0.sub_ts/INDS~2"
 elif inf_method == "sticcs":
-    target_dir = "2.0.sticcs"
+    target_dir = "2.0.sticcs/INDS~2"
 elif inf_method == "singer":
-    target_dir = "2.1.singer"
+    target_dir = "2.1.singer/INDS~2"
 else:
     print("Error: unknown inf_method.")
     exit()
@@ -31,7 +31,7 @@ bias = float(sys.argv[3])
 
 ###################
 ### Input:
-target = Path(f"../sim_pipeline_2/sim_output/{sim_model}/{target_dir}/")
+target = Path(f"../sim_pipeline/sim_output/{sim_model}/{target_dir}/")
 ordered_window_dict = f"./ordered_windows/ordered_windows_{sim_model}.sub_ts.json"
 with open(ordered_window_dict, "r") as f:
     ordered_window_dict = json.load(f)
@@ -53,10 +53,10 @@ for dir in target.glob("SEX~*/REC~*/MUT~*"):
     ### CASE 1 - ts per simulation! ###
     if inf_method in {"sim", "sticcs"}:
 
-        for ts_file in tqdm(list(dir.glob("*.trees"))):
+        for ts_file in tqdm(list(dir.glob("*.trees" if inf_method == "sim" else "*/0~1.trees"))):
 
             # Get ordered_windows
-            i = ts_file.stem
+            i = ts_file.stem if inf_method == "sim" else ts_file.parent.name
             ordered_windows = ordered_window_dict[key][i]
             n_keep = max(1, round(len(ordered_windows) * bias))
             windows = sorted(ordered_windows[:n_keep], key=lambda x: x[0]) # Coordinate sorting required for ts.keep_intervals()

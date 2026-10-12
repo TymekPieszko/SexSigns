@@ -15,7 +15,7 @@ def empty_ts(sequence_length):
     tables = tskit.TableCollection(sequence_length)
     for _ in range(4):
         tables.nodes.add_row(
-            flags=tskit.NODE_IS_SAGCLE,
+            flags=tskit.NODE_IS_SAMPLE,
             time=0.0
         )
     return tables.tree_sequence()

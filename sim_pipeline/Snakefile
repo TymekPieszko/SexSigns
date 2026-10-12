@@ -1,4 +1,5 @@
 import numpy as np
+import json
 configfile: "config.yaml"
 
 ### To put in README.md:
@@ -12,7 +13,7 @@ configfile: "config.yaml"
 # Reconstruct genome-wide trees for the target 2 individuals with IQ-TREE (rules IQ_TREE + root_prune). 
 
 # Choose a model to run
-model = "CO" # GC or CO
+model = "GC" # GC or CO
 # Parameters from config
 L = config["L"]
 N = config["N"]
@@ -26,21 +27,26 @@ rep_lst = list(range(int(rep)))
 # rep_lst = list(range(5))
 mut_lst = config["mut_lst"]
 
+mut_rates = json.load(open(f"tuned_mut_{model}_target~0.008967_bias~0.15.json"))
+
 ###################
 simulate_targets = expand("sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, rep=rep_lst)
 ###################
-subsample_targets = expand("sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+subsample_targets = expand("sim_output/{model}/1.0.sub_ts/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+subsample_for_abc_targets = expand("sim_output/{model}/1.0.sub_ts/INDS~10/SEX~{sex}/REC~{rec}/MUT~rotaria-tuned/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, rep=rep_lst)
 ###################
-singer_targets = expand("sim_output/{model}/2.1.singer/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+singer_targets = expand("sim_output/{model}/2.1.singer/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
 ###################
-sticcs_targets = expand("sim_output/{model}/2.0.sticcs/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+sticcs_targets_1 = expand("sim_output/{model}/2.0.sticcs/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/", model=model, sex=sex_lst, rec=rec_lst, mut=mut_lst, rep=rep_lst)
+sticcs_targets_2 = expand("sim_output/{model}/2.0.sticcs/INDS~8/SEX~{sex}/REC~{rec}/MUT~rotaria-tuned/{rep}/", model=model, sex=sex_lst, rec=rec_lst, rep=rep_lst)
 
 rule all:
     input:
         simulate_targets,
         subsample_targets,
+        subsample_for_abc_targets,
         # singer_targets,
-        # sticcs_targets,
+        sticcs_targets_2,
 
 rule simulate:
     output:
@@ -68,19 +74,20 @@ rule simulate:
         "-d 'output=\"{output}\"' scripts/model_{params.model}.slim"
 
 rule subsample:
+    # Produces outputs used by SINGER and sticcs;
+    # for visualiation & related analyses.
     input:
         "sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees"
     output:
-        # vcf and fasta_dir can be marked as temp
-        # No need for the MUT dir in sub_ts path
-        sub_ts = "sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", # 2 target inds
-        vcf = "sim_output/{model}/1.1.vcf/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf", # 2 target inds
-        fasta_dir = directory("sim_output/{model}/1.2.fasta/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/"), # Directory to store fasta files; 100 inds each (including 2 target inds)
+        # vcf and fasta_dir can be marked as temporary
+        sub_ts = "sim_output/{model}/1.0.sub_ts/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees", # 2 target inds
+        vcf = "sim_output/{model}/1.1.vcf/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf", # 2 target inds
+        fasta_dir = directory("sim_output/{model}/1.2.fasta/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/"), # Directory to store fasta files; 100 inds each (including 2 target inds)
         # intervals = "sim_output/{model}/1.1.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees" # ADD DESCRIPTION - interavals in order of bias
     conda:
         "envs/tskit.yaml"
     params:
-        inds_file = "sim_output/inds_pipeline.txt",
+        inds_file = "sim_output/inds_2.txt",
         L = L,
         N_recap = N, # For recapitation
         rec_recap = 1e-6, # For recapitation
@@ -92,13 +99,35 @@ rule subsample:
     script:
         "scripts/subsample_ts.py"
 
-# singer_runtimes = {}
+rule subsample_for_abc:
+    # Produces outputs for specific use in approximate Bayesian computation
+    # on Rotaria datasets.
+    input:
+        "sim_output/{model}/0.ts/SEX~{sex}/REC~{rec}/{rep}.trees"
+    output:
+        sub_ts = "sim_output/{model}/1.0.sub_ts/INDS~10/SEX~{sex}/REC~{rec}/MUT~rotaria-tuned/{rep}.trees"
+    conda:
+        "envs/tskit.yaml"
+    params:
+        inds_file = "sim_output/inds_10.txt",
+        mut_file = f"tuned_mut_{model}_target~0.008967_bias~0.15.json",
+        L = L,
+        N_recap = N,
+        rec_recap = 1e-6,
+        interval_len = 5000
+    threads: 1
+    resources:
+        mem_mb=1000,
+        runtime=5,
+    group: "subsample_for_abc"
+    script:
+        "scripts/subsample_ts.py"
 
 rule singer:
     input:
-        vcf = "sim_output/{model}/1.1.vcf/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf",
+        vcf = "sim_output/{model}/1.1.vcf/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.vcf",
     output:
-        ts_dir = directory("sim_output/{model}/2.1.singer/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/") # Non-ts output is deleted
+        ts_dir = directory("sim_output/{model}/2.1.singer/INDS~2/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/") # Non-ts output is deleted
     conda:
         "envs/tskit.yaml"
     threads: 1
@@ -112,16 +141,16 @@ rule singer:
 
 rule sticcs:
     input:
-        "sim_output/{model}/1.0.sub_ts/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees"
+        lambda wildcards: "sim_output/{model}/1.0.sub_ts/INDS~{inds}/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees".format(**dict(wildcards, inds=10 if wildcards.inds == "8" else wildcards.inds))
     output:
-        "sim_output/{model}/2.0.sticcs/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}.trees"
+        directory("sim_output/{model}/2.0.sticcs/INDS~{inds}/SEX~{sex}/REC~{rec}/MUT~{mut}/{rep}/")
     conda:
         "envs/sticcs.yaml"
-    threads: 1
+    threads: 16
     params:
-        force_ploidy = 1, # Diploid but haplotype-resolved (phased)
+        forced_ploidy = 1, # Diploid but haplotype-resolved (phased)
     resources:
-        mem_mb=10000, 
-        runtime=10
+        mem_mb=8000,
+        runtime=10,
     script:
         "scripts/run_sticcs.py"

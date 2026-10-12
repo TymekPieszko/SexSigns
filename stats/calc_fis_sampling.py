@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 ### Input:
 model = sys.argv[1]
 n_workers = int(sys.argv[2])
-target = Path(f"../sim_pipeline_2/sim_output/{model}/0.ts/")
+target = Path(f"../sim_pipeline/sim_output/{model}/0.ts/")
 n_lst = [5, 10, 15, 50, 100]
 
 ###################

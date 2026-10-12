@@ -33,7 +33,6 @@ function (logical)get_copying_directions(integer tracts) {
     return direction_vector;
 }
 
-
 function(object<Dictionary>$)draw_crossovers(float r, integer i_max) {
     if (r==0.0) {
         breaks = integer(0);
@@ -83,25 +82,6 @@ function(logical)resolve_crossovers(* break_matrix) {
     }
 }
 
-
-// Rotate columns in the break position matrix to resolve crossovers.
-function(logical)resolve_crossovers(* break_matrix) {
-    if (isNULL(break_matrix)) {
-        return(break_matrix);
-    }
-    if (nrow(break_matrix) == 1) {
-        return(break_matrix);
-    } else {
-        for (i in 0:(nrow(break_matrix)-2)) {
-            cols = which(break_matrix[i,] == T);
-            cols_rev = rev(cols);
-            target_rows = (i+1):(nrow(break_matrix)-1);
-            break_matrix[target_rows, cols] = break_matrix[target_rows, cols_rev];
-        }
-        return(break_matrix);
-    }
-}
-
 // Subset breaks using columns of the resolved break position matrix to obtain the the breaks for each chromatid.
 function(object<Dictionary>$)subset_crossovers(* breaks, * break_matrix) {
     if (length(breaks)==0) {
@@ -118,7 +98,6 @@ function(object<Dictionary>$)subset_crossovers(* breaks, * break_matrix) {
         return Dictionary("breaks1", breaks1, "breaks2", breaks2, "breaks3", breaks3, "breaks4", breaks4);
     }
 }
-
 
 /*
 //  Return break positions drawn using competing exponential distributions and the associated break position matrix with distinct break combos drawn for crossover and conversion events.

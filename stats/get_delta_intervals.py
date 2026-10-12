@@ -26,7 +26,7 @@ sim_model = sys.argv[1]
 interval_type = sys.argv[2]
 n_workers = int(sys.argv[3])
 inds_file = "./inds.tsv"
-target_dir = Path(f"../sim_pipeline_2/sim_output/{sim_model}/0.ts/")
+target_dir = Path(f"../sim_pipeline/sim_output/{sim_model}/0.ts/")
 
 ###################
 ### Output:

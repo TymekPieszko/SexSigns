@@ -15,4 +15,6 @@ Repository accompanying the manuscript (currently on bioRxiv: [DOI](https://doi.
 - `abc/`
   - Evaluation of different metrics for predicting the rate of sex using approximate Bayesian computation.
 - `yeast/`
-  - Application of the analytical framework to a haplotype-resolved genomic dataset for *Saccharomyces cerevisiae* (Loegler et al., 2025; [DOI](https://doi.org/10.1038/s41586-025-09637-0)).   
+  - Application of the analytical framework to a haplotype-resolved genomic dataset for *Saccharomyces cerevisiae* (Loegler et al., 2025; [DOI](https://doi.org/10.1038/s41586-025-09637-0)).
+- `rotaria/`
+  - Application of the analytical framework to two *Rotaria* bdelloid rotifer species: variant calling (`calls/`), phased blocks, co-phased segments and SNP polarisation (`data/`), ARG inference and genealogical statistics (`arg_based/`), classical statistics (`classical/`) and ABC (`abc/`). Simulations for the ABC were run with `sim_pipeline/` (mutation rates tuned with `sim_pipeline/tune_mut_to_rotaria.py`) and summarised with `stats/calc_stats_for_abc.py`.

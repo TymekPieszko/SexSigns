@@ -26,7 +26,7 @@ model = sys.argv[1]
 stat = sys.argv[2]
 n_workers = int(sys.argv[3])
 inds_file = "./inds_60.tsv"
-target = Path(f"../sim_pipeline_2/sim_output/{model}/0.ts/")
+target = Path(f"../sim_pipeline/sim_output/{model}/0.ts/")
 
 ###################
 ### Output:

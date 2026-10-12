@@ -27,10 +27,10 @@ if mode == "ts":
     glob_pattern = "SEX~*/REC~*"
     sex_idx, rec_idx = -2, -1
 elif mode == "sub_ts":
-    target = "1.0.sub_ts"
+    target = "1.0.sub_ts/INDS~2"
     glob_pattern = "SEX~*/REC~*/MUT~*"
     sex_idx, rec_idx = -3, -2
-target_dir = Path(f"../sim_pipeline_2/sim_output/{sim_model}/{target}/")
+target_dir = Path(f"../sim_pipeline/sim_output/{sim_model}/{target}/")
 
 ###################
 ### Output:
