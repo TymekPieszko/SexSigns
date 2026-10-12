@@ -35,8 +35,6 @@ for table, sub_dir in ((sample_table, stats_dir / "sample"),
         n_labels = 2 if sub_dir.name == "pair" else 1
         rows = [r for r in rows if set(r[:n_labels]) <= set(silwood)]
 
-    # Mean row; label columns (e.g. sample, sample_1) are not numeric,
-    # so they get "Mean:" / blanks. Decimals are matched to the source.
     mean_row = []
     for k in range(len(rows[0])):
         vals = [r[k] for r in rows]

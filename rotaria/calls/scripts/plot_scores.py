@@ -1,30 +1,11 @@
 #!/usr/bin/env python3
-"""Score histograms from a bcftools-query table, invariant and variant sites in
-separate panels (invariant blue, variant red), streamed so memory stays flat
-regardless of table size.
-
-Usage: plot_scores.py <table.tsv> <out.png> [--calc_thresholds <file>]
-
-table.tsv columns: TYPE  DP  MQ  QUAL  then per sample: GT,DP,GQ,SP
-  TYPE from bcftools %TYPE: 'REF' = invariant, anything else = variant
-
-Genotypes whose GT is missing are skipped: `bcftools filter -S .` blanks only
-the GT subfield, leaving DP/GQ/SP in place, so a masked genotype would
-otherwise still contribute its (failing) annotations to these histograms and
-make a working filter look inert.
-
-With --calc_thresholds, the 95th percentile of INFO/DP is written to <file> as
-a bare number (so the filter rule can read it with cat) and drawn on the
-DP_total panels. Without it the same plots are produced and no thresholds file
-is written, so the script serves both the pre- and post-filter rules.
-"""
 import sys, os
 from collections import Counter
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-PCT = 0.95   # percentile of INFO/DP used as the site depth ceiling
+PCT = 0.95
 
 args = sys.argv[1:]
 calc = None
@@ -35,14 +16,13 @@ if "--calc_thresholds" in args:
 table, png = args[0], args[1]
 title = os.path.basename(png).rsplit(".", 1)[0]
 
-# metric -> bin width (values are binned as int(value / width))
 METRICS = [("DP_total", 10), ("DP_sample", 1), ("QUAL", 5),
            ("MQ", 1), ("GQ_sample", 1), ("SP_sample", 1)]
 WIDTH = dict(METRICS)
 
-inv = {m: Counter() for m, _ in METRICS}   # invariant sites
-var = {m: Counter() for m, _ in METRICS}   # variant sites
-site_dp = Counter()                        # INFO/DP, for the depth ceiling
+inv = {m: Counter() for m, _ in METRICS}
+var = {m: Counter() for m, _ in METRICS}
+site_dp = Counter()
 
 def add(cnt, metric, val):
     cnt[metric][int(val / WIDTH[metric])] += 1
@@ -57,12 +37,11 @@ with open(table) as fh:
             add(target, "MQ", float(p[2]))
         if p[3] != ".":
             add(target, "QUAL", float(p[3]))
-        # per-sample GT,DP,GQ,SP -> per-site means over CALLED genotypes only
         sd = sg = ss = 0.0
         nd = ng = ns = 0
         for quad in p[4:]:
             gt, d, g, s = quad.split(",")
-            if gt in ("./.", ".", ".|."): continue     # masked: skip entirely
+            if gt in ("./.", ".", ".|."): continue
             if d != ".": sd += float(d); nd += 1
             if g != ".": sg += float(g); ng += 1
             if s != ".": ss += float(s); ns += 1
@@ -70,7 +49,7 @@ with open(table) as fh:
         if ng: add(target, "GQ_sample", sg / ng)
         if ns:
             m = ss / ns
-            if 1 <= m <= 50:            # course convention for SP
+            if 1 <= m <= 50:
                 add(target, "SP_sample", m)
 
 def quantile(h, q):
@@ -92,7 +71,7 @@ def draw(ax, cnt, metric, width, colour, label):
         return
     total = sum(cnt.values())
     cum, hi = 0, max(cnt)
-    for b in sorted(cnt):               # cap x at this class's 99.5th percentile
+    for b in sorted(cnt):
         cum += cnt[b]
         if cum >= 0.995 * total:
             hi = b

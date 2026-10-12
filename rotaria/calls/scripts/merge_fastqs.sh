@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export LC_ALL=C # Deterministic glob order, identical for R1 and R2
+export LC_ALL=C
 
 IN_DIR=../0.raw
 OUT_DIR=../1.merged

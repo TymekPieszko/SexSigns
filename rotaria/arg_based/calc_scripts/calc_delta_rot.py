@@ -75,8 +75,6 @@ def worker(pair):
     # Reshape into tskit-style genos
     genos = genos.reshape(-1, 4)
 
-    # Delta is a span-weighted mean over every CL interval of the pair,
-    # so accumulate the numerator / denominator across segments.
     weighted_sum = 0.0
     total_span = 0.0
     CL_total = 0; CL_retained = 0
@@ -86,11 +84,9 @@ def worker(pair):
         s, e = (int(x) for x in seg.split("-"))
         mask_i = (contigs == contig) & (pos >= s+1) & (pos <= e)
         genos_i, pos_i = genos[mask_i], pos[mask_i]-s # Note pos shift
-        # No sites in the segment -> nothing to weigh
         if genos_i.shape[0] == 0:
             continue
 
-        # CL intervals only (include_SX=False), then tree-support filter
         ts = tskit.load(ts_path)
         interval_dict = get_tree_intervals(ts, include_SX=False)
         CL_total += span(interval_dict)

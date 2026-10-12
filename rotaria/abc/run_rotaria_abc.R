@@ -78,9 +78,9 @@ axis(2, at = seq(floor(min(pcas$x[,2])), ceiling(max(pcas$x[,2])), by = 0.4),
      cex.axis = 1.3)
 points(pcas$x[(nrow(pcas$x)-1):nrow(pcas$x), 1],
        pcas$x[(nrow(pcas$x)-1):nrow(pcas$x), 2],
-       pch = 21,                # circle
-       bg = c(rgb(75, 41, 145, maxColorValue = 255), rgb(231, 90, 155, maxColorValue = 255)),  # fill colours
-       col = "black",           # border colour
+       pch = 21,
+       bg = c(rgb(75, 41, 145, maxColorValue = 255), rgb(231, 90, 155, maxColorValue = 255)),
+       col = "black",
        cex = 1.7)
 legend("topright",inset=0.01,cex=1.05,fill=1:3,legend=c("Obligate\nasex.","Rare\nsex","Freq.\nsex"),bty="n",y.intersp = 1.6)
 tab <- results[c("2.5% Perc.:", "Median:", "97.5% Perc.:"), ] * 1000

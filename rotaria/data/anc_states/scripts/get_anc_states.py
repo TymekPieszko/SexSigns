@@ -34,8 +34,6 @@ for line in open(ortho_file):
     contig, pos, ref, alt = line.rstrip("\n").split("\t")[:4]
     key = (contig, int(pos))
     if key in need:
-        # alt == "." is invariant; the alleles are kept to tell a SHARED
-        # polymorphism from an independent one at the same position.
         ortho_status[key] = (ref.upper(), alt.upper())
 
 ### (4) Collect stats & write ancestral states (AA) to file
@@ -48,7 +46,7 @@ for key in sorted(alleles):
     if ortho_base not in alleles[key]:
         n["third allele"] += 1; continue
     record = ortho_status.get((ortho_contig, ortho_pos))
-    if record is None: # Absent from the comparator: nothing to polarise against
+    if record is None:
         n["no comparator record"] += 1; continue
     ortho_ref, ortho_alt = record
     if ortho_alt != ".":

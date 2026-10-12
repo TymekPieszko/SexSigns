@@ -13,9 +13,6 @@ if sp == "Rmag":
 elif sp == "Rsoc":
     REF = f"ref/R_socialis_RS1.fa"
 
-# Depth ceilings are the 95th percentiles of INFO/DP and of each sample's
-# FORMAT/DP; plot_pre_filter computes them and writes {sp}_thresholds.txt.
-
 # Read the chunks for parallel calling / phasing
 CHUNKS = [l.strip() for l in open(f"{sp}_chunks.txt") if l.strip()]
 CHUNK_IDS = [f"{i:03d}" for i in range(len(CHUNKS))] # 0-padding needed for concatenation
@@ -105,8 +102,6 @@ rule bwa_mem2:
         "| samtools view -b -o {output.bam} -"
 
 rule markdup:
-    # No -d: ENA rewrote the read names, so optical duplicates cannot be told
-    # apart from PCR ones (all are marked either way).
     input:
         bam="3.mapped/{sp}/{sample}.bam",
     output:

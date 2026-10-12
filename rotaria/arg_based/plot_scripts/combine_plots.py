@@ -20,7 +20,7 @@ grid = [[mpimg.imread(f"../plots/kappa/{sp}.{mode}.KAPPA.png"),
          mpimg.imread(f"../plots/delta/{sp}.{mode}.d~{min_dbl}.DELTA.png")] for sp in ["Rmag", "Rsoc"]]
 
 widths = [img.shape[1] / img.shape[0] for img in grid[0]]
-wspace = 0.05 # gap between columns, as a fraction of the mean panel width
+wspace = 0.05
 fig, axs = plt.subplots(2, 3, figsize=(4 * (sum(widths) + 2 * wspace * sum(widths) / 3), 8),
                         gridspec_kw={"width_ratios": widths, "wspace": wspace, "hspace": 0})
 for row, imgs in zip(axs, grid):

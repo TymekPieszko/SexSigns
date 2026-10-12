@@ -40,10 +40,8 @@ with gzip.open(maf, "rt") as fh:
         orient1, orient2 = ann1["strand"] == -1, ann2["strand"] == -1
 
         for i in range(len(rmag1)):
-            # complement() leaves "-" untouched, so the gap test is frame-independent
             a, b = rmag1[i], rmag2[i]
             if a != "-" and b != "-":
-                # Forward 1-based on each contig's own strand
                 fwd1 = length1 - pos1 if orient1 else pos1 + 1
                 fwd2 = length2 - pos2 if orient2 else pos2 + 1
                 if target == "Rmag":

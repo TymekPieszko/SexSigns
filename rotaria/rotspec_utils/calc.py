@@ -134,8 +134,6 @@ def get_info_sites(genos, include_sgl=False):
     # if genos.shape[0] == 0:
     #     return genos, np.zeros(0, dtype=bool)
 
-    # max_allele=1 forces 2 columns; without it a monomorphic segment
-    # yields a 1-column ac and is_singleton(allele=1) goes out of bounds.
     ac = genos.count_alleles(max_allele=1)
     # Only biallelic with no missingness
     mask_1 = ac.is_biallelic_01() 
@@ -161,8 +159,6 @@ def get_sgls(genos):
     if genos.shape[0] == 0:
         return genos, np.zeros(0, dtype=bool)
 
-    # max_allele=1 forces 2 columns; without it a monomorphic segment
-    # yields a 1-column ac and is_singleton(allele=1) goes out of bounds.
     ac = genos.count_alleles(max_allele=1)
     # Exactly one derived copy across the 4 haplotypes
     mask_1 = ac.is_singleton(allele=1)
@@ -217,14 +213,6 @@ def get_phased_segments(blocks_1, blocks_2):
     # Takes two (n, 2) arrays of 1-based INCLUSIVE [start, end] blocks for ONE contig,
     # each sorted and non-overlapping (as returned by get_blocks).
     # Returns their pairwise intersections, same format.
-    #
-    # NB call this per contig. Blocks carry no contig label, so pooling contigs would
-    # intersect coordinates that share a position but not a sequence.
-    #
-    # Two-pointer sweep: O(n1 + n2) rather than O(n1 * n2). At ~38k blocks per sample
-    # the nested-loop form is ~1.4e9 iterations (~40 min); this is instant.
-    # Blocks are INCLUSIVE, so [1,50] and [50,100] DO overlap (at 50): the test is
-    # start <= end, not the half-open e1 <= s2.
     b1 = np.asarray(blocks_1).reshape(-1, 2)
     b2 = np.asarray(blocks_2).reshape(-1, 2)
     out, i, j = [], 0, 0
@@ -252,7 +240,6 @@ def get_contig_lengths(vcf):
     return out
 
 def read_bed(bed):
-    # Bed is 0-based & half-open, so start + 1 is the 1-based inclusive block start.
     # Produces a numpy structured array - cool!
     return np.genfromtxt(
         bed, dtype=None, encoding=None,

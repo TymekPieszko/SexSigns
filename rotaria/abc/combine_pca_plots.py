@@ -13,7 +13,7 @@ plot_file = Path("pca_combined.png")
 imgs = [mpimg.imread(f"pca_{mode}.png") for mode in ["silwood", "total"]]
 
 widths = [img.shape[1] / img.shape[0] for img in imgs]
-wspace = 0.1 # gap between columns, as a fraction of the mean panel width
+wspace = 0.1
 fig, axs = plt.subplots(1, 2, figsize=(8 * (sum(widths) + wspace * sum(widths) / 2), 8),
                         gridspec_kw={"width_ratios": widths, "wspace": wspace})
 for ax, img in zip(axs, imgs):

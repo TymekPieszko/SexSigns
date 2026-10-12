@@ -66,7 +66,7 @@ def calc_r2(genos, pos, scaffolds, K, d_max):
     return r2_total[sort_idx], dist_total[sort_idx]
 
 def worker(i):
-    np.random.seed(i) # replicates must differ even if workers are forked with a shared RNG state
+    np.random.seed(i)
     r2, dist = calc_r2(genos, pos, scaffolds, K, d_max)
     r2_windows = allel.windowed_statistic(dist, r2, statistic=lambda x : np.nanmean(x), start=0, stop=d_max, size=window_size)[0]
     np.savetxt(out_dir + f"/{i}.txt", r2_windows, fmt="%.3f")

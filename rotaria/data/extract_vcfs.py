@@ -9,7 +9,6 @@ from tqdm import tqdm
 ### Run as:
 # python extract_vcfs.py Rsoc 12
 
-# Fail here if bcftools is not on path
 assert shutil.which("bcftools"), "bcftools not on PATH!"
 
 ####################

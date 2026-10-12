@@ -50,7 +50,6 @@ props_arr = np.array([[p[c] for c in cats] for p in props_lst], dtype=float)
 
 ##############
 ### Plot 1: total
-# One band per category: min-max across pairs, with the mean dashed.
 mins, maxs, means = props_arr.min(axis=0), props_arr.max(axis=0), props_arr.mean(axis=0)
 fig = plt.figure(figsize=(6.4, 6.9))
 ax = fig.add_axes([1.5 / 6.4, 0.4 / 6.9, 4.5 / 6.4, 6 / 6.9])
@@ -73,7 +72,6 @@ with open(plot_1.with_suffix(".means.json"), "w") as f:
 
 ##############
 ### Plot 2: pairs
-# One stacked horizontal bar per pair; the three props sum to 1.
 y = np.arange(len(pair_lst))
 fig, ax = plt.subplots(figsize=(10, 0.32 * len(pair_lst) + 2))
 left = np.zeros(len(pair_lst))
@@ -81,7 +79,7 @@ for i, cat in enumerate(cats):
     ax.barh(y, props_arr[:, i], left=left, color=colors[i], label=cat, height=0.8)
     left += props_arr[:, i]
 ax.set_yticks(y); ax.set_yticklabels(pair_lst, fontsize=10)
-ax.invert_yaxis()          # first pair at the top
+ax.invert_yaxis()
 ax.set_xlim(0, 1)
 ax.set_xlabel("proportion", fontsize=12)
 ax.legend(ncol=len(cats), fontsize=12, loc="lower center",
